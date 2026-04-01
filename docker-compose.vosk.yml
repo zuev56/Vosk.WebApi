@@ -30,6 +30,6 @@ services:
         - linux/amd64
         - linux/arm64
     ports:
-      - "7075:80"
+      - "7075:8080"
     volumes:
       - "/opt/configs:/opt/configs/:ro"

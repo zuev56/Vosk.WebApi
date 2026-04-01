@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
@@ -7,6 +8,8 @@ using Scalar.AspNetCore;
 using Vosk.WebApi;
 
 var builder = WebApplication.CreateSlimBuilder(args);
+
+builder.ConfigureExternalAppConfiguration(args, Assembly.GetAssembly(typeof(Program))!);
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -85,7 +88,8 @@ voskApi.MapPost("/transcribe", async (HttpContext httpContext, [FromServices] Tr
         var acceptHeader = httpContext.Request.Headers.Accept.ToString();
         return acceptHeader switch
         {
-            _ when acceptHeader.Contains("application/json") => Results.Ok(finalResult),
+            _ when acceptHeader.Contains("application/json") => Results.Ok(
+                JsonSerializer.Serialize(finalResult, AppJsonSerializerContext.Default.ListJsonElement)),
             _ when acceptHeader.Contains("text/plain") => Results.Text(
                 string.Join(Environment.NewLine, (IEnumerable<string>)finalResult.Select(r => r.GetString("text")))),
             _ => Results.Ok(finalResult)
@@ -110,4 +114,5 @@ internal enum AudioFormat { Unsupported, Mp3, Wav }
 [JsonSerializable(typeof(IFormFile))]
 [JsonSerializable(typeof(Settings))]
 [JsonSerializable(typeof(JsonElement))]
+[JsonSerializable(typeof(List<JsonElement>))]
 public partial class AppJsonSerializerContext : JsonSerializerContext;
