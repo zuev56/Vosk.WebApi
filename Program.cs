@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Scalar.AspNetCore;
 using Vosk.WebApi;
 
-var builder = WebApplication.CreateSlimBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOptions<Settings>()
     .Bind(builder.Configuration)
@@ -27,7 +27,21 @@ voskApi.MapPost("/transcribe", async (HttpContext httpContext, [FromServices] Tr
         if (!httpContext.Request.HasFormContentType)
             return Results.BadRequest("Expected multipart/form-data content type");
 
-        var form = await httpContext.Request.ReadFormAsync();
+        IFormCollection form;
+        try
+        {
+            form = await httpContext.Request.ReadFormAsync();
+        }
+        catch (InvalidDataException ex)
+            when (ex.Message.Contains("Missing content-type boundary"))
+        {
+            return Results.BadRequest(new
+            {
+                error = "Invalid request format",
+                details = "Missing boundary in Content-Type header for multipart/form-data"
+            });
+        }
+
         var file = form.Files.FirstOrDefault();
 
         if (file == null || file.Length == 0)
