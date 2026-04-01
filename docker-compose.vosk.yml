@@ -30,6 +30,8 @@ services:
         - linux/amd64
         - linux/arm64
     ports:
-      - "7075:80"
+      - "7075:7075"
+#    environment:
+#      - ASPNETCORE_ENVIRONMENT=Development
     volumes:
       - "/opt/configs:/opt/configs/:ro"
