@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Vosk.AudioConverter.WebApi/Dockerfile
       platforms:
         - linux/amd64
         - linux/arm64
@@ -43,7 +43,7 @@ services:
     restart: unless-stopped
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Vosk.WebApi/Dockerfile
       platforms:
         - linux/amd64
         - linux/arm64
