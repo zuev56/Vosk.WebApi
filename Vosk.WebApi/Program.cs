@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
+using Vosk.Common;
 using Vosk.WebApi;
 
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -21,13 +22,16 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 // builder.Services.Configure<Settings>(voskSection);
 var settings = new Settings
 {
-    WebSocketUrl = builder.Configuration.GetValue<string>("VoskSettings:WebSocketUrl")!,
-    ResultChunkSize = builder.Configuration.GetValue<int>("VoskSettings:ResultChunkSize"),
-    WavSamplingRateHz = builder.Configuration.GetValue<int>("VoskSettings:WavSamplingRateHz"),
-    WavBitRate = builder.Configuration.GetValue<int>("VoskSettings:WavBitRate")
+    AudioFileConverterUrl = builder.Configuration.GetValue<string>($"{Settings.SectionName}:{nameof(Settings.AudioFileConverterUrl)}")!,
+    WebSocketUrl = builder.Configuration.GetValue<string>($"{Settings.SectionName}:{nameof(Settings.WebSocketUrl)}")!,
+    ResultChunkSize = builder.Configuration.GetValue<int>($"{Settings.SectionName}:{nameof(Settings.ResultChunkSize)}"),
+    WavSamplingRateHz = builder.Configuration.GetValue<int>($"{Settings.SectionName}:{nameof(Settings.WavSamplingRateHz)}"),
+    WavBitRate = builder.Configuration.GetValue<int>($"{Settings.SectionName}:{nameof(Settings.WavBitRate)}")
 };
 builder.Services.AddSingleton<IOptions<Settings>>(new OptionsWrapper<Settings>(settings));
 
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<AudioConverterClient>();
 builder.Services.AddSingleton<TranscriptionService>();
 builder.Services.AddOpenApi();
 
@@ -43,47 +47,11 @@ var voskApi = app.MapGroup("/vosk");
 
 voskApi.MapPost("/transcribe", async (HttpContext httpContext, [FromServices] TranscriptionService transcriptionService, CancellationToken cancellationToken) =>
     {
-        if (!httpContext.Request.HasFormContentType)
-            return Results.BadRequest("Expected multipart/form-data content type");
+        var validationResult = await RequestValidator.ValidateAsync(httpContext, AudioFormat.Wav|AudioFormat.Mp3, cancellationToken);
+        if (!validationResult.Succeeded)
+            return Results.BadRequest(validationResult.Error);
 
-        IFormCollection form;
-        try
-        {
-            form = await httpContext.Request.ReadFormAsync();
-        }
-        catch (InvalidDataException ex)
-            when (ex.Message.Contains("Missing content-type boundary"))
-        {
-            return Results.BadRequest(new
-            {
-                error = "Invalid request format",
-                details = "Missing boundary in Content-Type header for multipart/form-data"
-            });
-        }
-
-        var file = form.Files.FirstOrDefault();
-
-        if (file == null || file.Length == 0)
-            return Results.BadRequest("No audio file provided.");
-
-        var inputFormat = file.ContentType.ToLower() switch
-        {
-            "audio/wav" or "audio/x-wav" => AudioFormat.Wav,
-            "audio/mpeg" or "audio/mp3" => AudioFormat.Mp3,
-            _ => AudioFormat.Unsupported
-        };
-
-        if (inputFormat == AudioFormat.Unsupported)
-            Results.BadRequest($"Unsupported audio format: {file.ContentType}");
-
-        await using var stream = file.OpenReadStream();
-
-        var finalResult = inputFormat switch
-        {
-            AudioFormat.Wav => await transcriptionService.TranscribeWav(stream, cancellationToken),
-            AudioFormat.Mp3 => await transcriptionService.TranscribeMp3(stream, cancellationToken),
-            _ => throw new ArgumentOutOfRangeException(nameof(inputFormat))
-        };
+        var finalResult = await transcriptionService.TranscribeAsync(validationResult.File!, validationResult.Format!.Value, cancellationToken);
 
         var acceptHeader = httpContext.Request.Headers.Accept.ToString();
         return acceptHeader switch
@@ -105,8 +73,6 @@ voskApi.MapPost("/transcribe", async (HttpContext httpContext, [FromServices] Tr
 
 app.Run();
 
-internal enum AudioFormat { Unsupported, Mp3, Wav }
-
 [JsonSourceGenerationOptions(
     WriteIndented = false,
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -115,4 +81,4 @@ internal enum AudioFormat { Unsupported, Mp3, Wav }
 [JsonSerializable(typeof(Settings))]
 [JsonSerializable(typeof(JsonElement))]
 [JsonSerializable(typeof(List<JsonElement>))]
-public partial class AppJsonSerializerContext : JsonSerializerContext;
+public sealed partial class AppJsonSerializerContext : JsonSerializerContext;

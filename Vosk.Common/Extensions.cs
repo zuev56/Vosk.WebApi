@@ -1,8 +1,8 @@
 ﻿using System.Reflection;
 
-namespace Vosk.WebApi;
+namespace Vosk.Common;
 
-// TODO: Перенёс из ZS.Common
+// TODO: Скопипастил из ZS.Common
 public static class Extensions
 {
     public static IHostApplicationBuilder ConfigureExternalAppConfiguration(this IHostApplicationBuilder builder, string[] args, Assembly assembly)

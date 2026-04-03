@@ -3,7 +3,7 @@
 name: "vosk-asr"
 
 networks:
-  ai-network:
+  vosk-network:
     driver: bridge
 
 services:
@@ -16,7 +16,25 @@ services:
     ports:
       - "${VOSK_SERVER_WS_PORT:-2700}:2700"
     networks:
-      - ai-network
+      - vosk-network
+
+  # -----------------------------------------
+  audio-converter-web-api:
+    image: audio-converter.web-api
+    container_name: audio-converter-web-api
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    ports:
+      - "${AUDIO_CONVERTER_PORT:-7074}:8080"
+    volumes:
+      - "/opt/configs:/opt/configs/:ro"
+    networks:
+      - vosk-network
 
   # -----------------------------------------
   vosk-web-api:
@@ -30,6 +48,11 @@ services:
         - linux/amd64
         - linux/arm64
     ports:
-      - "7075:8080"
+      - "${WEB_API_PORT:-7075}:8080"
     volumes:
       - "/opt/configs:/opt/configs/:ro"
+    networks:
+      - vosk-network
+    depends_on:
+      - vosk-server-ru
+      - audio-converter-web-api
