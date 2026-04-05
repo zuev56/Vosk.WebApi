@@ -12,7 +12,7 @@ services:
     container_name: vosk-server-ru
     restart: unless-stopped
     ports:
-      - "${VOSK_PORT:-2700}:2700"
+      - "${VOSK_PORT:-7073}:2700"
     networks:
       - infra-network
 
@@ -46,8 +46,8 @@ services:
       - "/opt/configs:/opt/configs/:ro"
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
-      FFmpegApiUrl: ${FFMPEG_REST_URL:-http://localhost:7074}
-      VoskWebSocketUrl: ${VOSK_WEB_SOCKET_URL:-ws://localhost:2700}
+      FFmpegApiUrl: http://${HOST_IP:-localhost}:${FFMPEG_PORT:-7074}
+      VoskWebSocketUrl: http://${HOST_IP:-localhost}:${VOSK_PORT:-7073}
       ResultChunkSize: 8192
       WavSamplingRateHz: 8000
       WavBitRate: 16
