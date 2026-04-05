@@ -1,16 +1,12 @@
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
-using Vosk.Common;
 using Vosk.WebApi;
 
 var builder = WebApplication.CreateSlimBuilder(args);
-
-builder.ConfigureExternalAppConfiguration(args, Assembly.GetAssembly(typeof(Program))!);
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -22,11 +18,12 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 // builder.Services.Configure<Settings>(voskSection);
 var settings = new Settings
 {
-    AudioFileConverterUrl = builder.Configuration.GetValue<string>($"{Settings.SectionName}:{nameof(Settings.AudioFileConverterUrl)}")!,
-    WebSocketUrl = builder.Configuration.GetValue<string>($"{Settings.SectionName}:{nameof(Settings.WebSocketUrl)}")!,
-    ResultChunkSize = builder.Configuration.GetValue<int>($"{Settings.SectionName}:{nameof(Settings.ResultChunkSize)}"),
-    WavSamplingRateHz = builder.Configuration.GetValue<int>($"{Settings.SectionName}:{nameof(Settings.WavSamplingRateHz)}"),
-    WavBitRate = builder.Configuration.GetValue<int>($"{Settings.SectionName}:{nameof(Settings.WavBitRate)}")
+    FFmpegApiUrl = builder.Configuration.GetValue<string>(nameof(Settings.FFmpegApiUrl))!,
+    VoskWebSocketUrl = builder.Configuration.GetValue<string>(nameof(Settings.VoskWebSocketUrl))!,
+    ResultChunkSize = builder.Configuration.GetValue<int>(nameof(Settings.ResultChunkSize)),
+    WavSamplingRateHz = builder.Configuration.GetValue<int>(nameof(Settings.WavSamplingRateHz)),
+    WavBitRate = builder.Configuration.GetValue<int>(nameof(Settings.WavBitRate)),
+    ForceWavConversion = builder.Configuration.GetValue<bool>(nameof(Settings.ForceWavConversion))
 };
 builder.Services.AddSingleton<IOptions<Settings>>(new OptionsWrapper<Settings>(settings));
 
@@ -45,7 +42,10 @@ if (app.Environment.IsDevelopment())
 
 var voskApi = app.MapGroup("/vosk");
 
-voskApi.MapPost("/transcribe", async (HttpContext httpContext, [FromServices] TranscriptionService transcriptionService, CancellationToken cancellationToken) =>
+voskApi.MapPost("/transcribe", async (
+        HttpContext httpContext,
+        [FromServices] TranscriptionService transcriptionService,
+        CancellationToken cancellationToken) =>
     {
         var validationResult = await RequestValidator.ValidateAsync(httpContext, AudioFormat.Wav|AudioFormat.Mp3, cancellationToken);
         if (!validationResult.Succeeded)

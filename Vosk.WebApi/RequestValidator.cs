@@ -1,4 +1,4 @@
-﻿namespace Vosk.Common;
+﻿namespace Vosk.WebApi;
 
 public sealed record ValidationResult(bool Succeeded, IFormFile? File = null, AudioFormat? Format = AudioFormat.Unknown, string? Error = null);
 

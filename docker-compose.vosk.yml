@@ -1,9 +1,7 @@
 ﻿# sudo docker compose -f docker-compose.vosk.yml up -d
 
-name: "vosk-asr"
-
 networks:
-  vosk-network:
+  infra-network:
     driver: bridge
 
 services:
@@ -14,29 +12,22 @@ services:
     container_name: vosk-server-ru
     restart: unless-stopped
     ports:
-      - "${VOSK_SERVER_WS_PORT:-2700}:2700"
+      - "${VOSK_PORT:-2700}:2700"
     networks:
-      - vosk-network
+      - infra-network
 
   # -----------------------------------------
-  audio-converter-web-api:
-    image: audio-converter.web-api
-    container_name: audio-converter-web-api
+  # Можно и без ffmpeg-api, если планируется работа только с WAV с нужными харакеристиками.
+  ffmpeg-api:
+    image: msuarezpumpun/ffmpeg-api:latest
+    container_name: ffmpeg-api
     restart: unless-stopped
-    build:
-      context: .
-      dockerfile: Vosk.AudioConverter.WebApi/Dockerfile
-      platforms:
-        - linux/amd64
-        - linux/arm64
     ports:
-      - "${AUDIO_CONVERTER_PORT:-7074}:8080"
-    volumes:
-      - "/opt/configs:/opt/configs/:ro"
+      - "${FFMPEG_PORT:-7074}:3000"
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
     networks:
-      - vosk-network
+      - infra-network
 
   # -----------------------------------------
   vosk-web-api:
@@ -55,8 +46,13 @@ services:
       - "/opt/configs:/opt/configs/:ro"
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      FFmpegApiUrl: ${FFMPEG_REST_URL:-http://localhost:7074}
+      VoskWebSocketUrl: ${VOSK_WEB_SOCKET_URL:-ws://localhost:2700}
+      ResultChunkSize: 8192
+      WavSamplingRateHz: 8000
+      WavBitRate: 16
+      ForceWavConversion: true
     networks:
-      - vosk-network
+      - infra-network
     depends_on:
       - vosk-server-ru
-      - audio-converter-web-api

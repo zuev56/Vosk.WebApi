@@ -5,8 +5,6 @@ using Microsoft.Extensions.Options;
 
 namespace Vosk.WebApi;
 
-// Так как Nswag не дружит с AOT, пришлось модифицировать сгенерированный код
-
 public sealed record AudioConverterOptions(int SamplingRateHz = 8000, int BitRate = 16, int Channels = 1);
 
 public sealed class FileParameter
@@ -25,7 +23,7 @@ public sealed class ApiException : Exception
     public IReadOnlyDictionary<string, IEnumerable<string>> Headers { get; private set; }
 
     public ApiException(string message, int statusCode, string? response, IReadOnlyDictionary<string, IEnumerable<string>> headers, Exception? innerException)
-        : base(message + "\n\nStatus: " + statusCode + "\nResponse: \n" + ((response == null) ? "(null)" : response.Substring(0, response.Length >= 512 ? 512 : response.Length)), innerException)
+        : base(message + "\n\nStatus: " + statusCode + "\nResponse: \n" + (response == null ? "(null)" : response[..(response.Length >= 512 ? 512 : response.Length)]), innerException)
     {
         StatusCode = statusCode;
         Response = response;
@@ -43,13 +41,15 @@ public sealed class AudioConverterClient
     public AudioConverterClient(IHttpClientFactory httpClientFactory, IOptions<Settings> settings)
     {
         _httpClientFactory = httpClientFactory;
-        _baseUrl = settings.Value.AudioFileConverterUrl;
+        _baseUrl = settings.Value.FFmpegApiUrl;
         if (!string.IsNullOrEmpty(_baseUrl) && !_baseUrl.EndsWith("/"))
             _baseUrl += '/';
     }
 
     public async Task<FileContentResult> ConvertToWavAsync(FileParameter file, AudioConverterOptions options, CancellationToken cancellationToken)
     {
+        // Example: curl -F "file=@input.mp3" -F "params=-ar 8000 -acodec pcm_s16le -ac 1" 127.0.0.1:3000/convert/audio/to/wav > output.wav
+
         using var httpClient = _httpClientFactory.CreateClient();
         using var request = new HttpRequestMessage();
 
@@ -63,12 +63,17 @@ public sealed class AudioConverterClient
             fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(file.ContentType);
         content.Add(fileContent, "file", file.FileName);
 
-        content.Add(new StringContent(options.SamplingRateHz.ToString()), nameof(options.SamplingRateHz));
-        content.Add(new StringContent(options.BitRate.ToString()), nameof(options.BitRate));
-        content.Add(new StringContent(options.Channels.ToString()), nameof(options.Channels));
+        var codec = options.BitRate switch
+        {
+            8 => "pcm_u8", // 8-bit unsigned PCM
+            16 => "pcm_s16le", // 16-bit signed PCM (Little Endian)
+            _ => throw new ArgumentOutOfRangeException(nameof(options.BitRate), options.BitRate, "BitRate must be either 8 or 16")
+        };
+        var parameters = $"-ar {options.SamplingRateHz} -acodec {codec} -ac {options.Channels}";
 
-        request.RequestUri = new Uri($"{_baseUrl}convert/to/wav", UriKind.RelativeOrAbsolute);
+        content.Add(new StringContent(parameters), "params");
         request.Content = content;
+        request.RequestUri = new Uri($"{_baseUrl}convert/audio/to/wav", UriKind.RelativeOrAbsolute);
         request.Method = HttpMethod.Post;
         request.Headers.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("audio/wav"));
         using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);

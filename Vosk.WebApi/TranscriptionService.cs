@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
-using Vosk.Common;
 
 namespace Vosk.WebApi;
 
@@ -29,9 +28,8 @@ public sealed class TranscriptionService
         Stream? wavFileStream = null;
         try
         {
-            if (sourceFormat == AudioFormat.Wav)
+            if (sourceFormat == AudioFormat.Wav && !_settings.ForceWavConversion)
             {
-                // TODO: Если характеристики wav не соответствуют настройкам, надо сначала выполнить преобразование!
                 wavFileStream = file.OpenReadStream();
             }
             else
@@ -50,7 +48,7 @@ public sealed class TranscriptionService
             }
 
             var webSocket = new ClientWebSocket();
-            await webSocket.ConnectAsync(new Uri(_settings.WebSocketUrl), cancellationToken);
+            await webSocket.ConnectAsync(new Uri(_settings.VoskWebSocketUrl), cancellationToken);
 
             var data = new byte[8000];
             var results = new List<JsonElement>();

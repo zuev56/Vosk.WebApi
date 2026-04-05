@@ -1,4 +1,4 @@
-namespace Vosk.Common;
+namespace Vosk.WebApi;
 
 [Flags]
 public enum AudioFormat

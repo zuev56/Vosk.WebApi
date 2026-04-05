@@ -21,7 +21,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Vosk.Common\Vosk.Common.csproj" />
+      <Compile Remove="Extensions.cs" />
     </ItemGroup>
 
 </Project>
