@@ -1,4 +1,6 @@
-﻿namespace Vosk.WebApi;
+﻿using Vosk.WebApi.Models;
+
+namespace Vosk.WebApi.Services;
 
 public sealed record ValidationResult(bool Succeeded, IFormFile? File = null, AudioFormat? Format = AudioFormat.Unknown, string? Error = null);
 
@@ -6,7 +8,6 @@ public static class RequestValidator
 {
     public static async Task<ValidationResult> ValidateAsync(
         HttpContext httpContext,
-        AudioFormat expectedFormat,
         CancellationToken cancellationToken)
     {
         if (!httpContext.Request.HasFormContentType)
@@ -33,10 +34,11 @@ public static class RequestValidator
             "audio/wav" or "audio/x-wav" => AudioFormat.Wav,
             "audio/mpeg" or "audio/mp3" => AudioFormat.Mp3,
             "audio/x-ms-wma" => AudioFormat.Wma,
+            "audio/ogg" or "audio/oga" or "application/ogg" => AudioFormat.Ogg,
             _ => AudioFormat.Unknown
         };
 
-        if (format == AudioFormat.Unknown || (format & expectedFormat) != format || (format & ~AudioFormat.Known) == 0)
+        if (format == AudioFormat.Unknown || (format & ~AudioFormat.Known) == 0)
             return new ValidationResult(Succeeded: true, file, format);
 
         return new ValidationResult(Succeeded: false, file, format, Error: $"Unexpected audio format: {file.ContentType}");

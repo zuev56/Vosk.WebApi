@@ -2,17 +2,12 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Vosk.WebApi.Models;
+using FileInfo = Vosk.WebApi.Models.FileInfo;
 
-namespace Vosk.WebApi;
+namespace Vosk.WebApi.Services;
 
 public sealed record AudioConverterOptions(int SamplingRateHz = 8000, int BitRate = 16, int Channels = 1);
-
-public sealed class FileParameter
-{
-    public required Stream Data { get; init; }
-    public required string FileName { get; init; }
-    public required string ContentType { get; init; }
-}
 
 public sealed class ApiException : Exception
 {
@@ -46,7 +41,7 @@ public sealed class AudioConverterClient
             _baseUrl += '/';
     }
 
-    public async Task<FileContentResult> ConvertToWavAsync(FileParameter file, AudioConverterOptions options, CancellationToken cancellationToken)
+    public async Task<FileContentResult> ConvertToWavAsync(FileInfo file, AudioConverterOptions options, CancellationToken cancellationToken)
     {
         // Example: curl -F "file=@input.mp3" -F "params=-ar 8000 -acodec pcm_s16le -ac 1" 127.0.0.1:3000/convert/audio/to/wav > output.wav
 

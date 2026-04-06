@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Vosk.WebApi;
+namespace Vosk.WebApi.Models;
 
 [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 public sealed class Settings

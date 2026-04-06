@@ -4,7 +4,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
-using Vosk.WebApi;
+using Vosk.WebApi.Models;
+using Vosk.WebApi.Services;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -47,7 +48,7 @@ voskApi.MapPost("/transcribe", async (
         [FromServices] TranscriptionService transcriptionService,
         CancellationToken cancellationToken) =>
     {
-        var validationResult = await RequestValidator.ValidateAsync(httpContext, AudioFormat.Wav|AudioFormat.Mp3, cancellationToken);
+        var validationResult = await RequestValidator.ValidateAsync(httpContext, cancellationToken);
         if (!validationResult.Succeeded)
             return Results.BadRequest(validationResult.Error);
 
@@ -66,7 +67,7 @@ voskApi.MapPost("/transcribe", async (
     .DisableAntiforgery()
     .Accepts<IFormFile>("multipart/form-data")
     .Produces<string>(StatusCodes.Status200OK, "text/plain")
-    .Produces<object>(StatusCodes.Status200OK, "application/json")
+    .Produces<string>(StatusCodes.Status200OK, "application/json")
     .Produces(StatusCodes.Status400BadRequest)
     .WithName("TranscribeAudio")
     .WithDescription("Available \"Accept\" headers are \"text/plain\", \"application/json\"");

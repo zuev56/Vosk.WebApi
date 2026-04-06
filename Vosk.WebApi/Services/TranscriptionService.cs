@@ -4,8 +4,10 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
+using Vosk.WebApi.Models;
+using FileInfo = Vosk.WebApi.Models.FileInfo;
 
-namespace Vosk.WebApi;
+namespace Vosk.WebApi.Services;
 
 public sealed class TranscriptionService
 {
@@ -26,6 +28,7 @@ public sealed class TranscriptionService
         CancellationToken cancellationToken)
     {
         Stream? wavFileStream = null;
+        FileInfo? sourceFileInfo = null;
         try
         {
             if (sourceFormat == AudioFormat.Wav && !_settings.ForceWavConversion)
@@ -36,14 +39,14 @@ public sealed class TranscriptionService
             {
                 var sw = Stopwatch.StartNew();
                 var wavOptions = new AudioConverterOptions(_settings.WavSamplingRateHz, _settings.WavBitRate, Channels: 1);
-                var sourceFileParameter = new FileParameter
+                sourceFileInfo = new FileInfo
                 {
                     Data = file.OpenReadStream(),
                     ContentType = file.ContentType,
                     FileName = file.FileName
                 };
-                var convertedFileResult = await _converter.ConvertToWavAsync(sourceFileParameter, wavOptions , cancellationToken);
-                _logger.LogInformation($"Conversion to wave {sw.ElapsedMilliseconds}ms. Source file size: {sourceFileParameter.Data.Length} bytes, name: \"{file.FileName}\"");
+                var convertedFileResult = await _converter.ConvertToWavAsync(sourceFileInfo, wavOptions , cancellationToken);
+                _logger.LogInformation($"Conversion to wave {sw.ElapsedMilliseconds}ms. Source file size: {sourceFileInfo.Data.Length} bytes, name: \"{file.FileName}\"");
                 wavFileStream = new MemoryStream(convertedFileResult.FileContents);
             }
 
@@ -76,6 +79,7 @@ public sealed class TranscriptionService
         finally
         {
             // ReSharper disable once MethodHasAsyncOverload
+            sourceFileInfo?.Data.Dispose();
             wavFileStream?.Dispose();
         }
     }
